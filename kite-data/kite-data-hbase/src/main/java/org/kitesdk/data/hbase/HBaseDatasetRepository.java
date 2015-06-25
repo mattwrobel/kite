@@ -15,35 +15,38 @@
  */
 package org.kitesdk.data.hbase;
 
-import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.URI;
-import org.apache.hadoop.hbase.HConstants;
-import org.kitesdk.data.DatasetDescriptor;
-import org.kitesdk.data.DatasetIOException;
-import org.kitesdk.data.DatasetOperationException;
-import org.kitesdk.data.RandomAccessDataset;
-import org.kitesdk.data.hbase.avro.GenericAvroDao;
-import org.kitesdk.data.hbase.avro.SpecificAvroDao;
-import org.kitesdk.data.hbase.impl.Dao;
-import org.kitesdk.data.hbase.impl.SchemaManager;
-import org.kitesdk.data.hbase.manager.DefaultSchemaManager;
-import org.kitesdk.data.spi.AbstractDatasetRepository;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 import org.apache.avro.specific.SpecificRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTablePool;
+import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetIOException;
+import org.kitesdk.data.DatasetOperationException;
+import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.URIBuilder;
+import org.kitesdk.data.hbase.avro.GenericAvroDao;
+import org.kitesdk.data.hbase.avro.SpecificAvroDao;
+import org.kitesdk.data.hbase.impl.Dao;
+import org.kitesdk.data.hbase.impl.SchemaManager;
+import org.kitesdk.data.hbase.manager.DefaultSchemaManager;
+import org.kitesdk.data.spi.AbstractDatasetRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Preconditions;
 
 public class HBaseDatasetRepository extends AbstractDatasetRepository {
-
+  private static final Logger LOG = LoggerFactory
+      .getLogger(HBaseDatasetRepository.class);
   private static final String DEFAULT_NAMESPACE = "default";
 
   private HTablePool tablePool;
@@ -51,7 +54,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
   private HBaseMetadataProvider metadataProvider;
   private final URI repositoryUri;
 
-  HBaseDatasetRepository(HBaseAdmin hBaseAdmin, HTablePool tablePool, URI repositoryUri) {
+  HBaseDatasetRepository(HBaseAdmin hBaseAdmin, HTablePool tablePool,
+      URI repositoryUri) {
     this.tablePool = tablePool;
     this.schemaManager = new DefaultSchemaManager(tablePool);
     this.metadataProvider = new HBaseMetadataProvider(hBaseAdmin, schemaManager);
@@ -59,41 +63,50 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
   }
 
   @Override
-  public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+  public <E> RandomAccessDataset<E> create(String namespace, String name,
+      DatasetDescriptor descriptor, Class<E> type) {
     Preconditions.checkArgument(DEFAULT_NAMESPACE.equals(namespace),
         "Non-default namespaces are not supported");
     Preconditions.checkNotNull(name, "Dataset name cannot be null");
     Preconditions.checkNotNull(descriptor, "Descriptor cannot be null");
 
-    DatasetDescriptor newDescriptor = metadataProvider.create(namespace, name, descriptor);
+    DatasetDescriptor newDescriptor = metadataProvider.create(namespace, name,
+        descriptor);
     return newDataset(namespace, name, newDescriptor, type);
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor) {
-    return (RandomAccessDataset<E>) create(namespace, name, descriptor, Object.class);
+  public <E> RandomAccessDataset<E> create(String namespace, String name,
+      DatasetDescriptor descriptor) {
+    return (RandomAccessDataset<E>) create(namespace, name, descriptor,
+        Object.class);
   }
 
   @Override
-  public <E> RandomAccessDataset<E> update(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+  public <E> RandomAccessDataset<E> update(String namespace, String name,
+      DatasetDescriptor descriptor, Class<E> type) {
     Preconditions.checkArgument(DEFAULT_NAMESPACE.equals(namespace),
         "Non-default namespaces are not supported");
     Preconditions.checkNotNull(name, "Dataset name cannot be null");
     Preconditions.checkNotNull(descriptor, "Descriptor cannot be null");
 
-    DatasetDescriptor newDescriptor = metadataProvider.update(namespace, name, descriptor);
+    DatasetDescriptor newDescriptor = metadataProvider.update(namespace, name,
+        descriptor);
     return newDataset(namespace, name, newDescriptor, type);
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public <E> RandomAccessDataset<E> update(String namespace, String name, DatasetDescriptor descriptor) {
-    return (RandomAccessDataset<E>) update(namespace, name, descriptor, Object.class);
+  public <E> RandomAccessDataset<E> update(String namespace, String name,
+      DatasetDescriptor descriptor) {
+    return (RandomAccessDataset<E>) update(namespace, name, descriptor,
+        Object.class);
   }
 
   @Override
-  public <E> RandomAccessDataset<E> load(String namespace, String name, Class<E> type) {
+  public <E> RandomAccessDataset<E> load(String namespace, String name,
+      Class<E> type) {
     Preconditions.checkArgument(DEFAULT_NAMESPACE.equals(namespace),
         "Non-default namespaces are not supported");
     Preconditions.checkNotNull(name, "Dataset name cannot be null");
@@ -103,7 +116,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
     if (entityName.contains(".")) {
       List<DatasetDescriptor> descriptors = new ArrayList<DatasetDescriptor>();
       for (String subEntityName : entityName.split("\\.")) {
-        DatasetDescriptor descriptor = metadataProvider.load(namespace, tableName + "." + subEntityName);
+        DatasetDescriptor descriptor = metadataProvider.load(namespace,
+            tableName + "." + subEntityName);
         descriptors.add(descriptor);
       }
       return newCompositeDataset(namespace, name, tableName, descriptors, type);
@@ -125,8 +139,9 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
   }
 
   @SuppressWarnings("unchecked")
-  private <E> RandomAccessDataset<E> newCompositeDataset(String namespace, String name, String tableName,
-      List<DatasetDescriptor> descriptors, Class<E> type) {
+  private <E> RandomAccessDataset<E> newCompositeDataset(String namespace,
+      String name, String tableName, List<DatasetDescriptor> descriptors,
+      Class<E> type) {
     List<Class<SpecificRecord>> subEntityClasses = new ArrayList<Class<SpecificRecord>>();
     for (DatasetDescriptor descriptor : descriptors) {
       try {
@@ -144,18 +159,23 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
   }
 
   @SuppressWarnings("unchecked")
-  private <E> RandomAccessDataset<E> newDataset(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+  private <E> RandomAccessDataset<E> newDataset(String namespace, String name,
+      DatasetDescriptor descriptor, Class<E> type) {
     // TODO: use descriptor.getFormat() to decide type of DAO (Avro vs. other)
     String tableName = HBaseMetadataProvider.getTableName(name);
     String entityName = HBaseMetadataProvider.getEntityName(name);
     Dao dao;
     if (isSpecific(descriptor)) {
+      LOG.info("Creating specific avro dao for descriptor class: "
+          + descriptor.getSchema().getFullName());
       dao = new SpecificAvroDao(tablePool, tableName, entityName, schemaManager);
     } else {
+      LOG.info("Creating generic avro dao for descriptor class: "
+          + descriptor.getSchema().getFullName());
       dao = new GenericAvroDao(tablePool, tableName, entityName, schemaManager);
     }
-    return new DaoDataset(namespace, name, dao, descriptor,
-        new URIBuilder(repositoryUri, namespace, name).build(), type);
+    return new DaoDataset(namespace, name, dao, descriptor, new URIBuilder(
+        repositoryUri, namespace, name).build(), type);
   }
 
   private static boolean isSpecific(DatasetDescriptor descriptor) {
@@ -163,6 +183,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
       Class.forName(descriptor.getSchema().getFullName());
       return true;
     } catch (ClassNotFoundException e) {
+      LOG.warn("Descripto schema full namer: "
+          + descriptor.getSchema().getFullName() + " returned NOT SPECIFIC");
       return false;
     }
   }
@@ -224,7 +246,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository {
         throw new DatasetIOException(
             "Problem creating HBaseDatasetRepository.", e);
       }
-      return new HBaseDatasetRepository(admin, pool, getRepositoryUri(configuration));
+      return new HBaseDatasetRepository(admin, pool,
+          getRepositoryUri(configuration));
     }
 
     private URI getRepositoryUri(Configuration conf) {

@@ -52,6 +52,7 @@ public class SpecificAvroRecordBuilderFactory<T extends SpecificRecord>
       // Get the constructor of the class so we don't have to
       // perform this expensive reflection call for every
       // builder constructed.
+      LOG.info("Getting Constructor for class: " + recordClass.getName());
       this.recordClassConstructor = recordClass.getConstructor();
     } catch (Exception e) {
       // A number of reflection exceptions could be caught here.
